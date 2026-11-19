@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Supermarket Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #F7F7F7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding-bottom: 80px; }
+        .brand-red { background-color: #E52E2E; }
+        .text-brand-red { color: #E52E2E; }
+        .border-brand-red { border-color: #E52E2E; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- YUQORI HEADER VA QIDIRUV -->
+    <div class="bg-white sticky top-0 z-30 px-4 pt-3 pb-2 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+            <div>
+                <span class="text-xs text-gray-400 block">Olib ketish punkti</span>
+                <span class="font-bold text-sm text-gray-800">📍 Asosiy Supermarket</span>
+            </div>
+            <span id="roleBadge" class="text-xs px-2 py-1 rounded-full bg-red-50 text-brand-red font-semibold">Mijoz</span>
+        </div>
+        <div class="relative">
+            <input type="text" id="searchInput" oninput="searchProducts()" placeholder="Mahsulot va toifalarni qidirish..." 
+                class="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+            <span class="absolute left-3.5 top-2.5 text-gray-400">🔍</span>
+        </div>
+    </div>
+
+    <!-- 1. ASOSIY SAHIFA (HOME) -->
+    <div id="tab-home" class="tab-content px-4 pt-3">
+        <!-- Banner (Rasmdagidek qizil gradient) -->
+        <div class="brand-red rounded-2xl p-4 text-white flex justify-between items-center mb-4 shadow-md">
+            <div>
+                <span class="text-xs bg-white/20 px-2 py-0.5 rounded-md">Navbatsiz xarid</span>
+                <h2 class="text-lg font-bold mt-1">Buyurtma bering,<br>tayyor holda oling!</h2>
+                <p class="text-xs text-white/80 mt-1">ID yoki telefon raqam orqali</p>
+            </div>
+            <div class="text-5xl">🛍️</div>
+        </div>
+
+        <!-- Tezkor bo'limlar -->
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="font-bold text-gray-800">Bo'limlar</h3>
+            <button onclick="switchTab('catalog')" class="text-xs text-brand-red font-semibold">Barchasi ›</button>
+        </div>
+        <div id="homeCategories" class="grid grid-cols-4 gap-2 mb-5"></div>
+
+        <!-- Mahsulotlar vitrinasi -->
+        <h3 class="font-bold text-gray-800 mb-3">Mashhur mahsulotlar</h3>
+        <div id="homeProducts" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <!-- 2. KATALOG SAHIFASI -->
+    <div id="tab-catalog" class="tab-content hidden px-4 pt-3">
+        <h2 class="text-lg font-bold mb-3">Katalog</h2>
+        <div id="catalogList" class="space-y-2 mb-4"></div>
+        <div id="categoryProductsHeader" class="hidden flex justify-between items-center mb-3">
+            <h3 id="selectedCatTitle" class="font-bold text-gray-800"></h3>
+            <button onclick="resetCategory()" class="text-xs text-brand-red">‹ Orqaga</button>
+        </div>
+        <div id="catalogProducts" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <!-- 3. SAVAT SAHIFASI (Chegirmalarsiz sof narxda) -->
+    <div id="tab-cart" class="tab-content hidden px-4 pt-3">
+        <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-bold">Savat</h2>
+            <button onclick="clearCart()" class="text-xs text-gray-400">Tozalash</button>
+        </div>
+        <div id="cartItems" class="space-y-3 mb-4"></div>
+
+        <!-- Yetkazib berish yoki Olib ketish tanlovi -->
+        <div id="deliveryOptions" class="bg-white p-3.5 rounded-2xl shadow-sm mb-4 hidden">
+            <p class="text-xs font-bold text-gray-500 mb-2">Qabul qilish usuli:</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btnPickup" onclick="setDeliveryType('pickup')" class="py-2 rounded-xl text-xs font-bold border-2 border-brand-red text-brand-red bg-red-50">🏪 Olib ketish</button>
+                <button id="btnDelivery" onclick="setDeliveryType('delivery')" class="py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-600">🚚 Yetkazib berish</button>
+            </div>
+            <input id="addressInput" type="text" placeholder="Yetkazib berish manzilini kiriting..." class="hidden w-full mt-2 bg-gray-100 rounded-xl p-2.5 text-xs">
+        </div>
+
+        <div id="cartSummary" class="bg-white p-4 rounded-2xl shadow-sm hidden">
+            <div class="flex justify-between text-sm text-gray-500 mb-1">
+                <span>Mahsulotlar:</span>
+                <span id="subtotalText">0 so'm</span>
+            </div>
+            <div class="flex justify-between text-sm text-gray-500 mb-2">
+                <span>Xizmat / Yetkazish:</span>
+                <span id="deliveryFeeText">0 so'm</span>
+            </div>
+            <div class="border-t pt-2 flex justify-between font-bold text-base">
+                <span>Jami:</span>
+                <span id="totalText" class="text-brand-red">0 so'm</span>
+            </div>
+            <button onclick="submitOrder()" class="w-full brand-red text-white font-bold py-3.5 rounded-xl mt-4 shadow-md active:scale-95 transition">
+                Buyurtma berish
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. BUYURTMALARIM VA PROFIL -->
+    <div id="tab-orders" class="tab-content hidden px-4 pt-3">
+        <div class="brand-red text-white p-4 rounded-2xl mb-4 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg">👤</div>
+            <div>
+                <h3 id="profileName" class="font-bold">Foydalanuvchi</h3>
+                <p id="profilePhone" class="text-xs text-white/80">Telefon kiritilmagan</p>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-800 mb-4">
+            💡 <b>Eslatma:</b> Buyurtma bo'yicha savolingiz bo'lsa yoki rasm yubormoqchi bo'lsangiz, ilovani yopib to'g'ridan-to'g'ri bot chatiga yozing yoki rasm tashlang!
+        </div>
+
+        <h3 class="font-bold text-gray-800 mb-2">Buyurtmalar tarixi</h3>
+        <div id="ordersList" class="space-y-3"></div>
+    </div>
+
+    <!-- 5. ADMIN VA BO'LIM ISHCHISI PANELI -->
+    <div id="tab-admin" class="tab-content hidden px-4 pt-3">
+        <h2 class="text-lg font-bold mb-3">Boshqaruv Paneli</h2>
+
+        <!-- Savdo statistikasi (Admin/SuperAdmin) -->
+        <div id="adminStatsBox" class="grid grid-cols-2 gap-2 mb-4 hidden">
+            <div class="bg-white p-3 rounded-xl shadow-sm">
+                <span class="text-xs text-gray-400">Jami savdo</span>
+                <p id="statRevenue" class="font-bold text-brand-red text-base">0 so'm</p>
+            </div>
+            <div class="bg-white p-3 rounded-xl shadow-sm">
+                <span class="text-xs text-gray-400">Buyurtmalar</span>
+                <p id="statOrders" class="font-bold text-gray-800 text-base">0 ta</p>
+            </div>
+        </div>
+
+        <!-- Bo'lim ishchisi: Yangi mahsulot qo'shish (Tasdiqlashga yuborish) -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm mb-4">
+            <h3 class="font-bold text-sm mb-2">➕ Mahsulot qo'shish (Tasdiqlashga)</h3>
+            <select id="workerCatSelect" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2"></select>
+            <input id="newProdName" type="text" placeholder="Mahsulot nomi (masalan: Issiq non)" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2">
+            <input id="newProdPrice" type="number" placeholder="Narxi (so'mda)" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2">
+            <input id="newProdImg" type="text" placeholder="Rasm havolasi (ixtiyoriy)" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2">
+            <button onclick="sendWorkerRequest()" class="w-full brand-red text-white text-xs font-bold py-2.5 rounded-xl">Adminga tasdiqlash uchun yuborish</button>
+        </div>
+
+        <!-- Admin: Ishchilar so'rovlarini tasdiqlash -->
+        <div id="pendingRequestsBox" class="bg-white p-4 rounded-2xl shadow-sm mb-4 hidden">
+            <h3 class="font-bold text-sm mb-2">⏳ Tasdiqlash kutilayotgan mahsulotlar</h3>
+            <div id="pendingRequestsList" class="space-y-2"></div>
+        </div>
+
+        <!-- Super Admin: Xodim qo'shish va Yetkazib berishni sozlash -->
+        <div id="superAdminBox" class="bg-white p-4 rounded-2xl shadow-sm mb-4 hidden">
+            <h3 class="font-bold text-sm mb-2">👑 Super Admin: Xodim biriktirish</h3>
+            <input id="targetTgId" type="number" placeholder="Xodim Telegram ID raqami" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2">
+            <select id="targetRole" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2">
+                <option value="worker">Bo'lim ishchisi</option>
+                <option value="admin">Admin</option>
+                <option value="customer">Oddiy mijoz (Vakolatni olish)</option>
+            </select>
+            <select id="targetCatId" class="w-full bg-gray-100 rounded-xl p-2.5 text-xs mb-2"></select>
+            <button onclick="assignStaffRole()" class="w-full bg-gray-900 text-white text-xs font-bold py-2.5 rounded-xl mb-4">Saqlash</button>
+
+            <div class="border-t pt-3 flex justify-between items-center">
+                <span class="text-xs font-bold">🚚 Yetkazib berish xizmati (500k+)</span>
+                <input type="checkbox" id="deliveryToggle" onchange="toggleDelivery()" class="w-5 h-5 accent-red-600">
+            </div>
+        </div>
+    </div>
+
+    <!-- PASTKI NAVIGATSIYA (Rasmdagidek 4/5 talik menyu) -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 z-40 text-[11px] font-medium text-gray-500">
+        <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center text-brand-red">
+            <span class="text-lg">🏠</span><span>Asosiy</span>
+        </button>
+        <button onclick="switchTab('catalog')" id="nav-catalog" class="flex flex-col items-center">
+            <span class="text-lg">📑</span><span>Katalog</span>
+        </button>
+        <button onclick="switchTab('cart')" id="nav-cart" class="flex flex-col items-center relative">
+            <span class="text-lg">🛒</span><span>Savat</span>
+            <span id="cartBadge" class="hidden absolute -top-1 right-1 brand-red text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center">0</span>
+        </button>
+        <button onclick="switchTab('orders')" id="nav-orders" class="flex flex-col items-center">
+            <span class="text-lg">📦</span><span>Buyurtmalar</span>
+        </button>
+        <button onclick="switchTab('admin')" id="nav-admin" class="hidden flex flex-col items-center">
+            <span class="text-lg">⚙️</span><span>Boshqaruv</span>
+        </button>
+    </div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    const userId = tg.initDataUnsafe?.user?.id || 123456789;
+    let currentUser = null;
+    let categories = [];
+    let storeSettings = {};
+    let cart = JSON.parse(localStorage.getItem('sm_cart') || '{}');
+    let deliveryType = 'pickup';
+
+    async function initApp() {
+        const res = await fetch(`/api/init/${userId}`);
+        const data = await res.json();
+        currentUser = data.user;
+        categories = data.categories;
+        storeSettings = data.settings;
+
+        document.getElementById('profileName').innerText = currentUser.full_name || "Mijoz";
+        document.getElementById('profilePhone').innerText = currentUser.phone || "Raqam kiritilmagan";
+        document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
+
+        if (['super_admin', 'admin', 'worker'].includes(currentUser.role)) {
+            document.getElementById('nav-admin').classList.remove('hidden');
+        }
+        if (['super_admin', 'admin'].includes(currentUser.role)) {
+            document.getElementById('adminStatsBox').classList.remove('hidden');
+            document.getElementById('pendingRequestsBox').classList.remove('hidden');
+            loadAdminStats();
+            loadPendingRequests();
+        }
+        if (currentUser.role === 'super_admin') {
+            document.getElementById('superAdminBox').classList.remove('hidden');
+            document.getElementById('deliveryToggle').checked = storeSettings.delivery_enabled;
+        }
+        if (storeSettings.delivery_enabled) {
+            document.getElementById('deliveryOptions').classList.remove('hidden');
+        }
+
+        renderCategories();
+        loadProducts();
+        updateCartUI();
+    }
+
+    function renderCategories() {
+        const homeCat = document.getElementById('homeCategories');
+        const catList = document.getElementById('catalogList');
+        const workerSel = document.getElementById('workerCatSelect');
+        const targetSel = document.getElementById('targetCatId');
+
+        homeCat.innerHTML = categories.slice(0, 8).map(c => `
+            <div onclick="openCategory(${c.id}, '${c.name}')" class="bg-white p-2.5 rounded-xl text-center shadow-sm active:scale-95 transition">
+                <div class="text-2xl mb-1">${c.icon}</div>
+                <div class="text-[10px] font-semibold text-gray-700 leading-tight line-clamp-2">${c.name}</div>
+            </div>
+        `).join('');
+
+        catList.innerHTML = categories.map(c => `
+            <div onclick="openCategory(${c.id}, '${c.name}')" class="bg-white p-3.5 rounded-xl flex justify-between items-center shadow-sm">
+                <div class="flex items-center gap-3">
+                    <span class="text-xl">${c.icon}</span>
+                    <span class="font-semibold text-sm text-gray-800">${c.name}</span>
+                </div>
+                <span class="text-gray-400">›</span>
+            </div>
+        `).join('');
+
+        const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        workerSel.innerHTML = opts;
+        targetSel.innerHTML = opts;
+        if (currentUser.role === 'worker' && currentUser.assigned_category_id) {
+            workerSel.value = currentUser.assigned_category_id;
+            workerSel.disabled = true;
+        }
+    }
+
+    async function loadProducts(catId = null, search = '') {
+        let url = '/api/products?';
+        if (catId) url += `category_id=${catId}&`;
+        if (search) url += `search=${encodeURIComponent(search)}`;
+        const res = await fetch(url);
+        const products = await res.json();
+        const targetId = catId ? 'catalogProducts' : 'homeProducts';
+        document.getElementById(targetId).innerHTML = products.map(p => `
+            <div class="bg-white rounded-2xl p-3 shadow-sm flex flex-col justify-between">
+                <div>
+                    <img src="${p.image_url}" class="w-full h-28 object-contain rounded-xl mb-2 bg-gray-50">
+                    <h4 class="text-xs font-semibold text-gray-800 line-clamp-2 h-8">${p.name}</h4>
+                    <span class="text-[10px] text-gray-400">O'lchov: ${p.unit}</span>
+                </div>
+                <div class="mt-2 flex justify-between items-center">
+                    <span class="font-bold text-sm text-gray-900">${p.price.toLocaleString()} so'm</span>
+                    <button onclick='addToCart(${JSON.stringify(p)})' class="brand-red text-white w-8 h-8 rounded-xl font-bold text-lg flex items-center justify-center shadow active:scale-90">+</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openCategory(id, name) {
+        switchTab('catalog');
+        document.getElementById('catalogList').classList.add('hidden');
+        document.getElementById('categoryProductsHeader').classList.remove('hidden');
+        document.getElementById('selectedCatTitle').innerText = name;
+        loadProducts(id);
+    }
+
+    function resetCategory() {
+        document.getElementById('catalogList').classList.remove('hidden');
+        document.getElementById('categoryProductsHeader').classList.add('hidden');
+        document.getElementById('catalogProducts').innerHTML = '';
+    }
+
+    function searchProducts() {
+        const q = document.getElementById('searchInput').value;
+        switchTab('home');
+        loadProducts(null, q);
+    }
+
+    function addToCart(product) {
+        const step = product.unit === 'кг.' ? 0.5 : 1;
+        if (cart[product.id]) {
+            cart[product.id].qty = Math.round((cart[product.id].qty + step) * 10) / 10;
+        } else {
+            cart[product.id] = { ...product, qty: step };
+        }
+        saveCart();
+    }
+
+    function changeQty(id, delta) {
+        if (!cart[id]) return;
+        const step = cart[id].unit === 'кг.' ? 0.5 : 1;
+        cart[id].qty = Math.round((cart[id].qty + delta * step) * 10) / 10;
+        if (cart[id].qty <= 0) delete cart[id];
+        saveCart();
+    }
+
+    function saveCart() {
+        localStorage.setItem('sm_cart', JSON.stringify(cart));
+        updateCartUI();
+    }
+
+    function clearCart() {
+        cart = {};
+        saveCart();
+    }
+
+    function setDeliveryType(type) {
+        deliveryType = type;
+        document.getElementById('addressInput').classList.toggle('hidden', type === 'pickup');
+        updateCartUI();
+    }
+
+    function updateCartUI() {
+        const items = Object.values(cart);
+        const badge = document.getElementById('cartBadge');
+        if (items.length > 0) {
+            badge.innerText = items.length;
+            badge.classList.remove('hidden');
+            document.getElementById('cartSummary').classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+            document.getElementById('cartSummary').classList.add('hidden');
+        }
+
+        let subtotal = 0;
+        document.getElementById('cartItems').innerHTML = items.length ? items.map(i => {
+            const itemTotal = i.price * i.qty;
+            subtotal += itemTotal;
+            return `
+                <div class="bg-white p-3 rounded-2xl flex justify-between items-center shadow-sm">
+                    <div class="flex-1 pr-2">
+                        <h4 class="text-xs font-bold text-gray-800">${i.name}</h4>
+                        <p class="text-xs text-brand-red font-semibold mt-0.5">${itemTotal.toLocaleString()} so'm</p>
+                    </div>
+                    <div class="flex items-center gap-2 bg-gray-100 rounded-xl px-2 py-1">
+                        <button onclick="changeQty(${i.id}, -1)" class="font-bold text-gray-600 px-1.5">-</button>
+                        <span class="text-xs font-bold">${i.qty} ${i.unit}</span>
+                        <button onclick="changeQty(${i.id}, 1)" class="font-bold text-brand-red px-1.5">+</button>
+                    </div>
+                </div>
+            `;
+        }).join('') : '<p class="text-center text-gray-400 text-sm py-10">Savatchangiz bo\'sh</p>';
+
+        let fee = 0;
+        if (deliveryType === 'delivery' && subtotal < storeSettings.free_delivery_min_amount) {
+            fee = storeSettings.delivery_fee;
+        }
+        document.getElementById('subtotalText').innerText = subtotal.toLocaleString() + " so'm";
+        document.getElementById('deliveryFeeText').innerText = fee === 0 ? "Bepul" : fee.toLocaleString() + " so'm";
+        document.getElementById('totalText').innerText = (subtotal + fee).toLocaleString() + " so'm";
+    }
+
+    async function submitOrder() {
+        const items = Object.values(cart);
+        if (!items.length) return;
+        const subtotal = items.reduce((acc, i) => acc + i.price * i.qty, 0);
+        const res = await fetch('/api/orders', 
